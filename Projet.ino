@@ -4,14 +4,14 @@
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BME680.h"
 #include "Seeed_TMG3993.h"
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
-// Define SPI pins for BME680
 #define BME_SCK 36
 #define BME_MISO 37
 #define BME_MOSI 35
 #define BME_CS 34
 
-// Define sensor objects
 Adafruit_BME680 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // BME680 in SPI mode
 TMG3993 tmg3993; // TMG3993 in I2C mode
 
@@ -29,33 +29,37 @@ unsigned long previousMillis = 0; // Stores the time of the last reading
 const long interval = 5000;       // Reading interval: 5 seconds
 String lastReadingTime = "No data yet"; // Stores the time of the last sensor reading
 
+// NTP client to get current time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600, 60000); // UTC+1 (3600 seconds offset)
+
 void setup() {
-    // Initialize serial communication
+    // Init serial communication
     Serial.begin(9600);
     while (!Serial);
     Serial.println("Initializing sensors and connecting to Wi-Fi...");
 
-    // Initialize BME680 in SPI mode
+    // Init BME680 in SPI
     if (!bme.begin()) {
         Serial.println("Error: BME680 not detected. Check SPI wiring!");
         while (1);
     }
 
-    // Configure BME680
+    // Config BME680
     bme.setTemperatureOversampling(BME680_OS_8X);
     bme.setHumidityOversampling(BME680_OS_2X);
     bme.setPressureOversampling(BME680_OS_4X);
     bme.setIIRFilterSize(BME680_FILTER_SIZE_3);
     bme.setGasHeater(320, 150); // 320°C for 150 ms
 
-    // Initialize TMG3993 in I2C mode
+    // Init TMG3993 in I2C
     Wire.begin();
     if (tmg3993.initialize() == false) {
         Serial.println("Error: TMG3993 not detected. Check I2C wiring!");
         while (1);
     }
 
-    // Configure TMG3993
+    // Config TMG3993
     tmg3993.setADCIntegrationTime(0xdb); // Integration time: 103 ms
     tmg3993.enableEngines(ENABLE_PON | ENABLE_AEN | ENABLE_AIEN);
 
@@ -70,12 +74,19 @@ void setup() {
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
+    // Init NTP client
+    timeClient.begin();
+    timeClient.setTimeOffset(3600); // UTC+1 (adjust for your timezone)
+
     // Start the web server
     server.begin();
     Serial.println("Web server started.");
 }
 
 void loop() {
+    // Update NTP client to get current time
+    timeClient.update();
+
     // Check for client connections
     WiFiClient client = server.available();
     if (client) {
@@ -136,13 +147,13 @@ void loop() {
                         // Read TMG3993 data
                         if (tmg3993.getSTATUS() & STATUS_AVALID) {
                             uint16_t r, g, b, c;
-                            int32_t lux;// cct;
+                            int32_t lux, cct;
                             tmg3993.getRGBCRaw(&r, &g, &b, &c);
                             lux = tmg3993.getLux(r, g, b, c);
-                            //cct = tmg3993.getCCT(r, g, b, c);
+                            cct = tmg3993.getCCT(r, g, b, c);
 
                             client.println("<h2>TMG3993</h2>");
-                            /*client.print("<p>RGBC data: ");
+                            client.print("<p>RGBC data: ");
                             client.print(r);
                             client.print(", ");
                             client.print(g);
@@ -150,15 +161,15 @@ void loop() {
                             client.print(b);
                             client.print(", ");
                             client.print(c);
-                            client.println("</p>");*/
+                            client.println("</p>");
 
                             client.print("<p>Lux = ");
                             client.print(lux);
                             client.print("</p>");
-                            /*
+
                             client.print("<p>CCT = ");
                             client.print(cct);
-                            client.println("</p>");*/
+                            client.println("</p>");
 
                             // Clear TMG3993 interrupts
                             tmg3993.clearALSInterrupts();
@@ -185,8 +196,8 @@ void loop() {
     if (currentMillis - previousMillis >= interval) {
         previousMillis = currentMillis; // Update the time of the last reading
 
-        // Update the last reading time
-        lastReadingTime = String(currentMillis / 1000) + " seconds since startup";
+        // Update the last reading time with current date and time
+        lastReadingTime = timeClient.getFormattedTime();
 
         // Read sensors
         if (!bme.performReading()) {
@@ -216,14 +227,27 @@ void loop() {
 
         if (tmg3993.getSTATUS() & STATUS_AVALID) {
             uint16_t r, g, b, c;
-            int32_t lux;
+            int32_t lux;// cct;
             tmg3993.getRGBCRaw(&r, &g, &b, &c);
             lux = tmg3993.getLux(r, g, b, c);
+            //cct = tmg3993.getCCT(r, g, b, c);
 
             Serial.println("---- TMG3993 Data ----");
+            /*
+            Serial.print("RGBC data: ");
+            Serial.print(r);
+            Serial.print(", ");
+            Serial.print(g);
+            Serial.print(", ");
+            Serial.print(b);
+            Serial.print(", ");
+            Serial.println(c);*/
 
             Serial.print("Lux = ");
             Serial.print(lux);
+            /*
+            Serial.print(", CCT = ");
+            Serial.println(cct);*/
 
             // Clear TMG3993 interrupts
             tmg3993.clearALSInterrupts();
