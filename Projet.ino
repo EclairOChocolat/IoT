@@ -27,6 +27,7 @@ WiFiServer server(80);
 // Timing variables
 unsigned long previousMillis = 0; // Stores the time of the last reading
 const long interval = 5000;       // Reading interval: 5 seconds
+String lastReadingTime = "No data yet"; // Stores the time of the last sensor reading
 
 void setup() {
     // Initialize serial communication
@@ -97,6 +98,11 @@ void loop() {
                         client.println("<html><body>");
                         client.println("<h1>Sensor Data</h1>");
 
+                        // Display last reading time
+                        client.print("<p>Last sensor reading: ");
+                        client.print(lastReadingTime);
+                        client.println("</p>");
+
                         // Refresh button
                         client.println("<button onclick=\"window.location.reload();\">Refresh</button>");
                         client.println("<br><br>");
@@ -130,15 +136,29 @@ void loop() {
                         // Read TMG3993 data
                         if (tmg3993.getSTATUS() & STATUS_AVALID) {
                             uint16_t r, g, b, c;
-                            int32_t lux, cct;
+                            int32_t lux;// cct;
                             tmg3993.getRGBCRaw(&r, &g, &b, &c);
                             lux = tmg3993.getLux(r, g, b, c);
-                            cct = tmg3993.getCCT(r, g, b, c);
+                            //cct = tmg3993.getCCT(r, g, b, c);
 
                             client.println("<h2>TMG3993</h2>");
+                            /*client.print("<p>RGBC data: ");
+                            client.print(r);
+                            client.print(", ");
+                            client.print(g);
+                            client.print(", ");
+                            client.print(b);
+                            client.print(", ");
+                            client.print(c);
+                            client.println("</p>");*/
+
                             client.print("<p>Lux = ");
                             client.print(lux);
                             client.print("</p>");
+                            /*
+                            client.print("<p>CCT = ");
+                            client.print(cct);
+                            client.println("</p>");*/
 
                             // Clear TMG3993 interrupts
                             tmg3993.clearALSInterrupts();
@@ -164,6 +184,9 @@ void loop() {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= interval) {
         previousMillis = currentMillis; // Update the time of the last reading
+
+        // Update the last reading time
+        lastReadingTime = String(currentMillis / 1000) + " seconds since startup";
 
         // Read sensors
         if (!bme.performReading()) {
@@ -193,25 +216,14 @@ void loop() {
 
         if (tmg3993.getSTATUS() & STATUS_AVALID) {
             uint16_t r, g, b, c;
-            int32_t lux, cct;
+            int32_t lux;
             tmg3993.getRGBCRaw(&r, &g, &b, &c);
             lux = tmg3993.getLux(r, g, b, c);
-            cct = tmg3993.getCCT(r, g, b, c);
 
             Serial.println("---- TMG3993 Data ----");
-            Serial.print("RGBC data: ");
-            Serial.print(r);
-            Serial.print(", ");
-            Serial.print(g);
-            Serial.print(", ");
-            Serial.print(b);
-            Serial.print(", ");
-            Serial.println(c);
 
             Serial.print("Lux = ");
             Serial.print(lux);
-            Serial.print(", CCT = ");
-            Serial.println(cct);
 
             // Clear TMG3993 interrupts
             tmg3993.clearALSInterrupts();
