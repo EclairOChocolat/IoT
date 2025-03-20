@@ -147,12 +147,13 @@ void loop() {
                         // Read TMG3993 data
                         if (tmg3993.getSTATUS() & STATUS_AVALID) {
                             uint16_t r, g, b, c;
-                            int32_t lux, cct;
+                            int32_t lux; //,cct;
                             tmg3993.getRGBCRaw(&r, &g, &b, &c);
                             lux = tmg3993.getLux(r, g, b, c);
-                            cct = tmg3993.getCCT(r, g, b, c);
+                            //cct = tmg3993.getCCT(r, g, b, c);
 
                             client.println("<h2>TMG3993</h2>");
+                            /*
                             client.print("<p>RGBC data: ");
                             client.print(r);
                             client.print(", ");
@@ -161,15 +162,15 @@ void loop() {
                             client.print(b);
                             client.print(", ");
                             client.print(c);
-                            client.println("</p>");
+                            client.println("</p>");*/
 
                             client.print("<p>Lux = ");
                             client.print(lux);
                             client.print("</p>");
-
+                            /*
                             client.print("<p>CCT = ");
                             client.print(cct);
-                            client.println("</p>");
+                            client.println("</p>");*/
 
                             // Clear TMG3993 interrupts
                             tmg3993.clearALSInterrupts();
